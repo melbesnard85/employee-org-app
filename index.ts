@@ -37,12 +37,16 @@ class EmployeeOrgApp implements IEmployeeOrgApp {
     autoIncrement = 1;
     ceo: Employee;
     private _employees: EmployeeContainer = {}
+
+    /** logs of move action */
     private _logs: EmployeeMoveLog[] = [];
     private _logIndex = 0;
 
     constructor(ceo: Employee) {
         this.ceo = ceo;
         this.ceo.uniqueId = this.autoIncrement++;
+
+        /** indexing entire employees by their uniqueId */
         this._employees[this.ceo.uniqueId] = ceo;
     }
 
@@ -64,18 +68,27 @@ class EmployeeOrgApp implements IEmployeeOrgApp {
         const employee = this._employees[employeeID];
         const oldSupervisor = this._getSupervisor(employeeID);
         if (oldSupervisor) {
+            /** remove current employee from old supervisor */
             const newSubordinates = oldSupervisor.subordinates.filter(_employee => _employee.uniqueId !== employee.uniqueId);
+
+            /** add subordinates of current employee to old supervisor */
             newSubordinates.push(...employee.subordinates);
             oldSupervisor.subordinates = newSubordinates;
         }
+
         const supervisor = this._employees[supervisorID];
+        /** move current employee from old supervisor to new supervisor */
         supervisor.subordinates.push(employee);
+
+        /** create log of move action */
         const log: EmployeeMoveLog = {
             employeeID,
             oldSupervisorID: oldSupervisor?.uniqueId,
             oldSubordinatesIDs: employee.subordinates.map(({ uniqueId }) => uniqueId),
             supervisorID,
         }
+
+        /** remove subordinates from current employee */
         employee.subordinates = [];
         this._logs[this._logIndex++] = log;
     }
@@ -97,11 +110,18 @@ class EmployeeOrgApp implements IEmployeeOrgApp {
             const prevEmployee = this._employees[log.employeeID];
             if (log.oldSupervisorID) {
                 const oldSupervisor = this._employees[log.oldSupervisorID];
+                /** remove previous employee's subordinates from old supervisor */
                 oldSupervisor.subordinates = oldSupervisor.subordinates.filter(subordinate => log.oldSubordinatesIDs.indexOf(subordinate.uniqueId) === -1);
+
+                /** add previous employee to old supervisor */
                 oldSupervisor.subordinates.push(prevEmployee);
             }
             const subordinates = log.oldSubordinatesIDs.map(uniqueId => this._employees[uniqueId]);
+
+            /** reset prev employee's subordinates */
             prevEmployee.subordinates = subordinates;
+            
+            /** remove prev employee from his current supervisor */
             supervisor.subordinates = supervisor.subordinates.filter(subordinate => subordinate.uniqueId !== log.employeeID);
         }
     }
